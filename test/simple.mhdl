@@ -11,7 +11,7 @@ output {
 }
 
 testing {
-    clk = !clk after 500ms,
+    clk = !clk after 500ms;
 }
 
 logic {
@@ -22,7 +22,3 @@ process rising clk {
    out_2 = !in_2; 
 }
 
-
-hshsh {
-
-}
