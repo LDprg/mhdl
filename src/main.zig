@@ -4,8 +4,8 @@ const mecha = @import("mecha");
 const mhdl = mecha.combine(.{
     scope_input,
     lcurly,
+    chars,
     rcurly,
-    ws,
 }).many(.{ .collect = false });
 
 const scope = mecha.oneOf(.{ scope_input, scope_ouput, scope_test, scope_logic, scope_process });
@@ -32,6 +32,13 @@ const ws = mecha.oneOf(.{
     mecha.utf8.char(0x0009),
 }).many(.{ .collect = false }).discard();
 
+const chars = char.many(.{ .collect = false }).discard();
+
+const char = mecha.oneOf(.{
+    mecha.utf8.range('a', 'z').discard(),
+    mecha.utf8.range('A', 'Z').discard(),
+});
+
 fn readFile(alloc: std.mem.Allocator, path: []const u8) ![]u8 {
     const file = try std.fs.cwd().openFile(path, .{});
     defer file.close();
@@ -49,8 +56,7 @@ pub fn main() !void {
     const res = try mhdl.parse(alloc, file);
 
     std.debug.print("{any}\n\n", .{res});
-    std.debug.print("Value: {s}\n\n", .{res.value});
-    std.debug.print("{s}", .{res.rest});
+    std.debug.print("Value: {s}\n\n", .{res.value.ok});
 }
 
 test "simple.mhdl" {
