@@ -10,7 +10,7 @@ output {
     global out_2 : bool,
 }
 
-test {
+testing {
     clk = !clk after 500ms,
 }
 

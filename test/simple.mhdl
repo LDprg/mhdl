@@ -1,9 +1,28 @@
-input {hallo}
+input {
+    global in_1 : bool,
+    global in_2 : bool,
 
-output {}
+    local clk : bool = 0,
+}
 
-test {}
+output {
+    global out_1 : bool,
+    global out_2 : bool,
+}
 
-logic {}
+testing {
+    clk = !clk after 500ms,
+}
 
-process rising clk {}
+logic {
+    out_1 = in_1 & in_2;
+}
+
+process rising clk {
+   out_2 = !in_2; 
+}
+
+
+hshsh {
+
+}
