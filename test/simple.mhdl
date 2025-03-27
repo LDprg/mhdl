@@ -10,7 +10,7 @@ output {
     global out_2 : bool,
 }
 
-testing {
+test {
     clk = !clk after 500ms;
 }
 
@@ -18,7 +18,7 @@ logic {
     out_1 = in_1 & in_2;
 }
 
-process rising clk {
+process {
    out_2 = !in_2; 
 }
 
