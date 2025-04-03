@@ -18,7 +18,10 @@ where
     M: Fn(SimpleSpan, &'src [Spanned<Token<'src>>]) -> I + Clone + 'src,
 {
     recursive(|expr| {
-        let scope = choice((just(Token::InputScope), just(Token::OutputScope)));
+        let scope = choice((
+            just(Token::InputScope),
+            just(Token::OutputScope),
+        ));
 
         scope
     })

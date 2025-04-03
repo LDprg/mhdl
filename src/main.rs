@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 mod lexer;
-// mod parser;
+mod parser;
 mod prelude;
 
 fn failure(
@@ -44,17 +44,33 @@ fn parse_failure(err: &Rich<impl fmt::Display>, src: &str) -> ! {
     )
 }
 
+fn make_input<'src>(
+    eoi: SimpleSpan,
+    toks: &'src [Spanned<Token<'src>>],
+) -> impl BorrowInput<'src, Token = Token<'src>, Span = SimpleSpan> {
+    toks.map(eoi, |(t, s)| (t, s))
+}
+
 fn main() {
     let path = env::args()
         .nth(1)
         .or_else(|| Some("./test/simple.mhdl".to_string()))
         .expect("No file path");
     let src = fs::read_to_string(path).expect("Failed to read file");
+    let src = src.as_str();
 
     let tokens = lexer()
-        .parse(src.trim())
+        .parse(src)
         .into_result()
-        .unwrap_or_else(|errs| parse_failure(&errs[0], src.trim()));
+        .unwrap_or_else(|errs| parse_failure(&errs[0], src));
 
-    tokens.into_iter().for_each(|data| println!("{:?}", data));
+    (&tokens).into_iter().for_each(|data| println!("{:?}", data));
+    println!("");
+
+    let expr = parser(make_input)
+        .parse(make_input((0..src.len()).into(), &tokens))
+        .into_result()
+        .unwrap_or_else(|errs| parse_failure(&errs[0], src));
+
+    println!("{:?}", expr);
 }
