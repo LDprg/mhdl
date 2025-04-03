@@ -58,7 +58,7 @@ pub fn lexer<'a>()
     let ctrl = one_of("(){}[];,:").map(Token::Ctrl);
 
     let ident = text::ascii::ident().map(|ident: &str| match ident {
-        // Values 
+        // Values
         "true" => Token::Bool(true),
         "false" => Token::Bool(false),
         // Types

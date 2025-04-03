@@ -4,73 +4,61 @@ mod lexer;
 mod parser;
 mod prelude;
 
-fn failure(
-    msg: String,
-    label: (String, SimpleSpan),
-    extra_labels: impl IntoIterator<Item = (String, SimpleSpan)>,
-    src: &str,
-) -> ! {
-    let fname = "example";
-    Report::build(ReportKind::Error, (fname, label.1.into_range()))
-        .with_message(&msg)
-        .with_label(
-            Label::new((fname, label.1.into_range()))
-                .with_message(label.0)
-                .with_color(Color::Red),
-        )
-        .with_labels(extra_labels.into_iter().map(|label2| {
-            Label::new((fname, label2.1.into_range()))
-                .with_message(label2.0)
-                .with_color(Color::Yellow)
-        }))
-        .finish()
-        .print(sources([(fname, src)]))
-        .unwrap();
-    std::process::exit(1)
-}
-
-fn parse_failure(err: &Rich<impl fmt::Display>, src: &str) -> ! {
-    failure(
-        err.reason().to_string(),
-        (
-            err.found()
-                .map(|c| c.to_string())
-                .unwrap_or_else(|| "end of input".to_string()),
-            *err.span(),
-        ),
-        err.contexts()
-            .map(|(l, s)| (format!("while parsing this {l}"), *s)),
-        src,
-    )
-}
-
-fn make_input<'src>(
-    eoi: SimpleSpan,
-    toks: &'src [Spanned<Token<'src>>],
-) -> impl BorrowInput<'src, Token = Token<'src>, Span = SimpleSpan> {
-    toks.map(eoi, |(t, s)| (t, s))
-}
-
 fn main() {
-    let path = env::args()
+    let filename = env::args()
         .nth(1)
         .or_else(|| Some("./test/simple.mhdl".to_string()))
         .expect("No file path");
-    let src = fs::read_to_string(path).expect("Failed to read file");
-    let src = src.as_str();
+    let src = fs::read_to_string(&filename).expect("Failed to read file");
 
-    let tokens = lexer()
-        .parse(src)
-        .into_result()
-        .unwrap_or_else(|errs| parse_failure(&errs[0], src));
+    let (tokens, errs) = lexer().parse(src.as_str()).into_output_errors();
 
-    (&tokens).into_iter().for_each(|data| println!("{:?}", data));
-    println!("");
+    if let Some(tokens) = &tokens {
+        tokens.iter().for_each(|data| println!("{:?}", data));
+    }
 
-    let expr = parser(make_input)
-        .parse(make_input((0..src.len()).into(), &tokens))
-        .into_result()
-        .unwrap_or_else(|errs| parse_failure(&errs[0], src));
+    println!();
 
-    println!("{:?}", expr);
+    let parse_errs = if let Some(tokens) = &tokens {
+        let (ast, parse_errs) = scopes_parser()
+            .parse(
+                tokens
+                    .as_slice()
+                    .map((src.len()..src.len()).into(), |(t, s)| (t, s)),
+            )
+            .into_output_errors();
+
+        if let Some(ast) = &ast {
+            ast.iter().for_each(|data| println!("{:?}", data));
+        }
+
+        parse_errs
+    } else {
+        Vec::new()
+    };
+
+    errs.into_iter()
+        .map(|e| e.map_token(|c| c.to_string()))
+        .chain(
+            parse_errs
+                .into_iter()
+                .map(|e| e.map_token(|tok| tok.to_string())),
+        )
+        .for_each(|e| {
+            Report::build(ReportKind::Error, (filename.clone(), e.span().into_range()))
+                .with_message(e.to_string())
+                .with_label(
+                    Label::new((filename.clone(), e.span().into_range()))
+                        .with_message(e.reason().to_string())
+                        .with_color(Color::Red),
+                )
+                .with_labels(e.contexts().map(|(label, span)| {
+                    Label::new((filename.clone(), span.into_range()))
+                        .with_message(format!("while parsing this {}", label))
+                        .with_color(Color::Yellow)
+                }))
+                .finish()
+                .print(sources([(filename.clone(), src.clone())]))
+                .unwrap()
+        });
 }

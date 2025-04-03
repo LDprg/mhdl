@@ -1,28 +1,64 @@
 use crate::prelude::*;
 
 #[derive(Clone, Debug)]
-pub enum Expr<'src> {
-    Output(&'src str),
-    Input(&'src str),
-    Signal(&'src str),
-    And(Box<Spanned<Self>>, Box<Spanned<Self>>),
+#[allow(dead_code)]
+pub enum Scope<'src> {
+    Input(Vec<Token<'src>>),
+    Output(Vec<Token<'src>>),
+    Signal(Vec<Token<'src>>),
+    Logic(Vec<Token<'src>>),
 }
 
-pub fn parser<'src, I, M>(
-    make_input: M,
-) -> impl Parser<'src, I, Token<'src>, extra::Err<Rich<'src, Token<'src>>>>
-where
-    I: BorrowInput<'src, Token = Token<'src>, Span = SimpleSpan>,
-    // Because this function is generic over the input type, we need the caller to tell us how to create a new input,
-    // `I`, from a nested token tree. This function serves that purpose.
-    M: Fn(SimpleSpan, &'src [Spanned<Token<'src>>]) -> I + Clone + 'src,
-{
-    recursive(|expr| {
-        let scope = choice((
-            just(Token::InputScope),
-            just(Token::OutputScope),
-        ));
+impl fmt::Display for Scope<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Scope::Input(_) => write!(f, "input"),
+            Scope::Output(_) => write!(f, "output"),
+            Scope::Signal(_) => write!(f, "signal"),
+            Scope::Logic(_) => write!(f, "logic"),
+        }
+    }
+}
 
-        scope
-    })
+pub fn scopes_parser<'src, I>()
+-> impl Parser<'src, I, Vec<Scope<'src>>, extra::Err<Rich<'src, Token<'src>, Span>>> + Clone
+where
+    I: ValueInput<'src, Token = Token<'src>, Span = Span>,
+{
+    choice((
+        just(Token::InputScope)
+            .then(
+                none_of(Token::Ctrl('}'))
+                    .repeated()
+                    .collect::<Vec<_>>()
+                    .delimited_by(just(Token::Ctrl('{')), just(Token::Ctrl('}'))),
+            )
+            .map(|(_, data)| Scope::Input(data)),
+        just(Token::OutputScope)
+            .then(
+                none_of(Token::Ctrl('}'))
+                    .repeated()
+                    .collect::<Vec<_>>()
+                    .delimited_by(just(Token::Ctrl('{')), just(Token::Ctrl('}'))),
+            )
+            .map(|(_, data)| Scope::Output(data)),
+        just(Token::SignalScope)
+            .then(
+                none_of(Token::Ctrl('}'))
+                    .repeated()
+                    .collect::<Vec<_>>()
+                    .delimited_by(just(Token::Ctrl('{')), just(Token::Ctrl('}'))),
+            )
+            .map(|(_, data)| Scope::Signal(data)),
+        just(Token::LogicScope)
+            .then(
+                none_of(Token::Ctrl('}'))
+                    .repeated()
+                    .collect::<Vec<_>>()
+                    .delimited_by(just(Token::Ctrl('{')), just(Token::Ctrl('}'))),
+            )
+            .map(|(_, data)| Scope::Logic(data)),
+    ))
+    .repeated()
+    .collect::<Vec<_>>()
 }
