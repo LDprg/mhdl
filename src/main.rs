@@ -1,77 +1,47 @@
-use std::{env, fmt, fs};
+use crate::prelude::*;
 
-use chumsky::prelude::*;
+mod lexer;
+// mod parser;
+mod prelude;
 
-pub type Span = SimpleSpan;
-pub type Spanned<T> = (T, Span);
-
-#[derive(Clone, Debug)]
-enum Token<'a> {
-    // Values
-    Bool(bool),
-    Num(i64),
-
-    // Tokens
-    Ident(&'a str),
-    Op(&'a str),
-    Ctrl(char),
-
-    // Types
-    BoolType,
+fn failure(
+    msg: String,
+    label: (String, SimpleSpan),
+    extra_labels: impl IntoIterator<Item = (String, SimpleSpan)>,
+    src: &str,
+) -> ! {
+    let fname = "example";
+    Report::build(ReportKind::Error, (fname, label.1.into_range()))
+        .with_message(&msg)
+        .with_label(
+            Label::new((fname, label.1.into_range()))
+                .with_message(label.0)
+                .with_color(Color::Red),
+        )
+        .with_labels(extra_labels.into_iter().map(|label2| {
+            Label::new((fname, label2.1.into_range()))
+                .with_message(label2.0)
+                .with_color(Color::Yellow)
+        }))
+        .finish()
+        .print(sources([(fname, src)]))
+        .unwrap();
+    std::process::exit(1)
 }
 
-impl fmt::Display for Token<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            // Values
-            Token::Bool(x) => write!(f, "{}", x),
-            Token::Num(n) => write!(f, "{}", n),
-            // Tokens
-            Token::Ident(s) => write!(f, "{}", s),
-            Token::Op(s) => write!(f, "{}", s),
-            Token::Ctrl(c) => write!(f, "{}", c),
-            // Types
-            Token::BoolType => write!(f, "bool"),
-        }
-    }
-}
-
-fn lexer<'a>() -> impl Parser<'a, &'a str, Vec<Spanned<Token<'a>>>, extra::Err<Rich<'a, char, Span>>>
-{
-    let num = text::int(10)
-        .to_slice()
-        .from_str()
-        .unwrapped()
-        .map(Token::Num);
-
-    let op = one_of("&|!=")
-        .repeated()
-        .at_least(1)
-        .to_slice()
-        .map(Token::Op);
-    let ctrl = one_of("(){}[];,:").map(Token::Ctrl);
-
-    let ident = text::ascii::ident().map(|ident: &str| match ident {
-        "bool" => Token::BoolType,
-        "true" => Token::Bool(true),
-        "false" => Token::Bool(false),
-        _ => Token::Ident(ident),
-    });
-
-    let token = num.or(op).or(ctrl).or(ident);
-
-    let comment = just("//")
-        .then(any().and_is(just('\n').not()).repeated())
-        .padded();
-
-    token
-        .map_with(|tok, e| (tok, e.span()))
-        .padded_by(comment.repeated())
-        .padded()
-        // If we encounter an error, skip and attempt to lex the next character as a token instead
-        .recover_with(skip_then_retry_until(any().ignored(), end()))
-        .repeated()
-        .collect()
+fn parse_failure(err: &Rich<impl fmt::Display>, src: &str) -> ! {
+    failure(
+        err.reason().to_string(),
+        (
+            err.found()
+                .map(|c| c.to_string())
+                .unwrap_or_else(|| "end of input".to_string()),
+            *err.span(),
+        ),
+        err.contexts()
+            .map(|(l, s)| (format!("while parsing this {l}"), *s)),
+        src,
+    )
 }
 
 fn main() {
@@ -81,8 +51,10 @@ fn main() {
         .expect("No file path");
     let src = fs::read_to_string(path).expect("Failed to read file");
 
-    match lexer().parse(src.trim()).into_result() {
-        Ok(ast) => ast.into_iter().for_each(|data| println!("{:?}", data)),
-        Err(errs) => errs.into_iter().for_each(|e| println!("{:?}", e)),
-    };
+    let tokens = lexer()
+        .parse(src.trim())
+        .into_result()
+        .unwrap_or_else(|errs| parse_failure(&errs[0], src.trim()));
+
+    tokens.into_iter().for_each(|data| println!("{:?}", data));
 }

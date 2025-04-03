@@ -48,6 +48,7 @@ However those will be signficantely more easily to use and less redundant than f
 Some long term features might be:
 
 - Example projects
+- Formatting tools
 - Language server for big editors (Nvim, Vscode, etc.)
 - Meta programming
 - Static code analysis
