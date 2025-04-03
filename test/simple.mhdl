@@ -1,24 +1,22 @@
 input {
-    global in_1 : bool,
-    global in_2 : bool,
+    in_1 : bool,
+    in_2 : bool,
 
-    local clk : bool = 0,
+    clk : bool = 0,
 }
 
 output {
-    global out_1 : bool,
-    global out_2 : bool,
+    out_1 : bool,
+    out_2 : bool,
 }
 
-test {
-    clk = !clk after 500ms;
+signal {
+    local : bool,
 }
 
 logic {
-    out_1 = in_1 & in_2;
-}
+    local = in_1 & in_2;
 
-process {
-   out_2 = !in_2; 
+    out_1 = local;
 }
 
