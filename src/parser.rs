@@ -1,6 +1,7 @@
 use crate::prelude::*;
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct Variable<'src> {
     name: &'src str,
     typ: VariableType,
@@ -87,4 +88,3 @@ where
         .map(|(s, t)| Variable { name: s, typ: t })
         .labelled("Variable")
 }
-
