@@ -2,7 +2,7 @@ input {
     in_1 : bool,
     in_2 : bool,
 
-    clk : bool = 0,
+    clk : bool,
 }
 
 output {

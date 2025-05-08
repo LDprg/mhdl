@@ -1,6 +1,19 @@
 use crate::prelude::*;
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum VariableType {
+    Bool,
+}
+
+impl fmt::Display for VariableType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            VariableType::Bool => write!(f, "bool"),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Token<'a> {
     // Values
     Bool(bool),
@@ -12,7 +25,7 @@ pub enum Token<'a> {
     Ctrl(char),
 
     // Types
-    BoolType,
+    VariableType(VariableType),
 
     // Scope
     OutputScope,
@@ -32,7 +45,7 @@ impl fmt::Display for Token<'_> {
             Token::Op(s) => write!(f, "{}", s),
             Token::Ctrl(c) => write!(f, "{}", c),
             // Types
-            Token::BoolType => write!(f, "bool"),
+            Token::VariableType(v) => write!(f, "{}", v),
             // Scopes
             Token::OutputScope => write!(f, "output"),
             Token::InputScope => write!(f, "input"),
@@ -62,7 +75,7 @@ pub fn lexer<'a>()
         "true" => Token::Bool(true),
         "false" => Token::Bool(false),
         // Types
-        "bool" => Token::BoolType,
+        "bool" => Token::VariableType(VariableType::Bool),
         // Scopes
         "output" => Token::OutputScope,
         "input" => Token::InputScope,

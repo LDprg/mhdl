@@ -1,11 +1,17 @@
 use crate::prelude::*;
 
 #[derive(Clone, Debug)]
+pub struct Variable<'src> {
+    name: &'src str,
+    typ: VariableType,
+}
+
+#[derive(Clone, Debug)]
 #[allow(dead_code)]
 pub enum Scope<'src> {
-    Input(Vec<Token<'src>>),
-    Output(Vec<Token<'src>>),
-    Signal(Vec<Token<'src>>),
+    Input(Vec<Variable<'src>>),
+    Output(Vec<Variable<'src>>),
+    Signal(Vec<Variable<'src>>),
     Logic(Vec<Token<'src>>),
 }
 
@@ -28,24 +34,27 @@ where
     choice((
         just(Token::InputScope)
             .then(
-                none_of(Token::Ctrl('}'))
-                    .repeated()
+                vars_parser()
+                    .separated_by(just(Token::Ctrl(',')))
+                    .allow_trailing()
                     .collect::<Vec<_>>()
                     .delimited_by(just(Token::Ctrl('{')), just(Token::Ctrl('}'))),
             )
             .map(|(_, data)| Scope::Input(data)),
         just(Token::OutputScope)
             .then(
-                none_of(Token::Ctrl('}'))
-                    .repeated()
+                vars_parser()
+                    .separated_by(just(Token::Ctrl(',')))
+                    .allow_trailing()
                     .collect::<Vec<_>>()
                     .delimited_by(just(Token::Ctrl('{')), just(Token::Ctrl('}'))),
             )
             .map(|(_, data)| Scope::Output(data)),
         just(Token::SignalScope)
             .then(
-                none_of(Token::Ctrl('}'))
-                    .repeated()
+                vars_parser()
+                    .separated_by(just(Token::Ctrl(',')))
+                    .allow_trailing()
                     .collect::<Vec<_>>()
                     .delimited_by(just(Token::Ctrl('{')), just(Token::Ctrl('}'))),
             )
@@ -59,6 +68,23 @@ where
             )
             .map(|(_, data)| Scope::Logic(data)),
     ))
+    .labelled("Scope")
     .repeated()
     .collect::<Vec<_>>()
 }
+
+pub fn vars_parser<'src, I>()
+-> impl Parser<'src, I, Variable<'src>, extra::Err<Rich<'src, Token<'src>, Span>>> + Clone
+where
+    I: ValueInput<'src, Token = Token<'src>, Span = Span>,
+{
+    let ident = select! {Token::Ident(s) => s}.labelled("Identifier");
+    let typ = select! {Token::VariableType(v) => v}.labelled("Type");
+
+    ident
+        .then_ignore(just(Token::Ctrl(':')))
+        .then(typ)
+        .map(|(s, t)| Variable { name: s, typ: t })
+        .labelled("Variable")
+}
+
