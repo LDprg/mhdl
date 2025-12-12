@@ -1,3 +1,4 @@
+# This repo move to https://codeberg.org/LDprg/mhdl
 # MHDL
 
 Modern HDL that transcopile to existing HDLs
